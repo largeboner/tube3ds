@@ -29,7 +29,7 @@ jobs:
           curl -fL https://github.com/Epicpkmn11/bannertool/releases/latest/download/bannertool.zip -o /tmp/bannertool.zip
           7z e -y /tmp/bannertool.zip linux-x86_64/bannertool -o/usr/local/bin
 
-          curl -fL https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.19.0/makerom-v0.19.0-ubuntu_x86_64.zip -o /tmp/makerom.zip
+          curl -fL https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.17/makerom-v0.17-ubuntu_x86_64.zip -o /tmp/makerom.zip
           7z e -y /tmp/makerom.zip -o/usr/local/bin
 
           chmod +x /usr/local/bin/bannertool /usr/local/bin/makerom
