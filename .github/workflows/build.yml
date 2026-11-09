@@ -1,0 +1,78 @@
+name: Build 3DS app
+
+# Every push to main builds tube3ds.3dsx + tube3ds.cia and publishes them as the
+# latest GitHub Release, together with a QR code you can scan in FBI.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libjpeg-turbo, bannertool and makerom
+        run: |
+          dkp-pacman -Sy --noconfirm --needed 3ds-libjpeg-turbo \
+            || pacman -Sy --noconfirm --needed 3ds-libjpeg-turbo \
+            || echo "libjpeg-turbo install step skipped (may already be in the image)"
+
+          apt-get update && apt-get install -y p7zip-full curl
+
+          curl -fL https://github.com/Epicpkmn11/bannertool/releases/latest/download/bannertool.zip -o /tmp/bannertool.zip
+          7z e -y /tmp/bannertool.zip linux-x86_64/bannertool -o/usr/local/bin
+
+          curl -fL https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.19.0/makerom-v0.19.0-ubuntu_x86_64.zip -o /tmp/makerom.zip
+          7z e -y /tmp/makerom.zip -o/usr/local/bin
+
+          chmod +x /usr/local/bin/bannertool /usr/local/bin/makerom
+
+      - name: Build .3dsx and .cia
+        run: make -C client cia
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tube3ds
+          path: |
+            client/tube3ds.3dsx
+            client/tube3ds.cia
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tube3ds
+          path: dist
+
+      - name: Make FBI QR code
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/latest/download/tube3ds.cia"
+          python3 -m venv /tmp/qr
+          /tmp/qr/bin/pip install -q "qrcode[pil]"
+          /tmp/qr/bin/python -c "import qrcode,sys; qrcode.make(sys.argv[1], box_size=10, border=4).save('dist/tube3ds-qr.png')" "$URL"
+          echo "CIA_URL=$URL" >> "$GITHUB_ENV"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Tube3DS build ${{ github.run_number }}
+          make_latest: true
+          files: dist/*
+          body: |
+            ## Install with FBI
+            On your 3DS open **FBI → Remote Install → Scan QR Code** and scan this:
+
+            ![Tube3DS QR code](https://github.com/${{ github.repository }}/releases/download/build-${{ github.run_number }}/tube3ds-qr.png)
+
+            The QR code always installs the newest build: `${{ env.CIA_URL }}`
+
+            You also need the companion server running on your computer. See the README.
